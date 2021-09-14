@@ -1,2 +1,7 @@
 .vscode/
+dist/
 build/
+
+src/antlr4_runtime/
+
+src/antlr*.jar
