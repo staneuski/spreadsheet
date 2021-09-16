@@ -3,6 +3,8 @@
 #include "cell.h"
 #include "common.h"
 
+#include <algorithm>
+#include <iostream>
 #include <functional>
 
 class Sheet : public SheetInterface {
@@ -37,7 +39,10 @@ public:
         return const_cast<Sheet&>(*this).GetCell(pos);
     }
 
-    CellInterface* GetCell(Position pos) override;
+    inline CellInterface* GetCell(Position pos) override {
+        ThrowInvalidPosition(pos);
+        return IsExist(pos) ? rows_[pos.row][pos.col].get() : nullptr;
+    }
 
     void ClearCell(Position pos) override;
 
@@ -63,7 +68,7 @@ public:
     }
 
 private:
-    std::vector<Row> rows_;
+    std::vector<Row> rows_; // store cells by rows up to last not empty one
     size_t columns_count_ = {};
 
     inline static bool IsCellEmpty(const std::unique_ptr<Cell>& cell) {
@@ -79,15 +84,14 @@ private:
             );
     }
 
-    inline bool IsFit(const Position pos) const {
-        return rows_.size() >= static_cast<size_t>(pos.row + 1)
-            && columns_count_ >= static_cast<size_t>(pos.col + 1)
-            && rows_.at(pos.row).size() >= static_cast<size_t>(pos.col + 1);
+    inline bool IsExist(const Position pos) const {
+        return static_cast<size_t>(pos.row) < rows_.size()
+            && static_cast<size_t>(pos.col) < rows_[pos.row].size();
     }
 
     // Корректирует размер таблицы, если позиция выходит за её размеры
     // и при необходимости увеличивает длину строки pos.row
-    void Fit(Position pos);
+    void Increase(Position pos);
 
     void Shrink();
 
