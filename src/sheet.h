@@ -6,6 +6,8 @@
 #include <functional>
 
 class Sheet : public SheetInterface {
+    using Row = std::vector<std::unique_ptr<Cell>>;
+
     class CellValuePrinter {
     public:
         CellValuePrinter(std::ostream& output) : out_(output) {}
@@ -31,7 +33,10 @@ public:
 
     void SetCell(Position pos, std::string text) override;
 
-    const CellInterface* GetCell(Position pos) const override;
+    inline const CellInterface* GetCell(Position pos) const override {
+        return const_cast<Sheet&>(*this).GetCell(pos);
+    }
+
     CellInterface* GetCell(Position pos) override;
 
     void ClearCell(Position pos) override;
@@ -42,8 +47,12 @@ public:
     void PrintTexts(std::ostream& output) const override;
 
 private:
-    std::vector<std::vector<std::unique_ptr<Cell>>> cells_; // rows x cols
-    Size size_;
+    std::vector<Row> rows_;
+    size_t columns_count_ = {};
+
+    inline static bool IsCellEmpty(const std::unique_ptr<Cell>& cell) {
+        return !(cell && !cell->GetText().empty());
+    }
 
     inline void ThrowInvalidPosition(const Position pos) const {
         if (!pos.IsValid())
@@ -54,23 +63,33 @@ private:
             );
     }
 
-    inline static bool IsCellEmpty(const std::unique_ptr<Cell>& cell) {
-        return cell && !cell->GetText().empty();
-    }
-
     inline bool IsFit(const Position pos) const {
-        return size_.rows - 1 >= pos.row && size_.cols - 1 >= pos.col;
+        return rows_.size() >= static_cast<size_t>(pos.row + 1)
+            && columns_count_ >= static_cast<size_t>(pos.col + 1)
+            && rows_.at(pos.row).size() >= static_cast<size_t>(pos.col + 1);
     }
 
     // Корректирует размер таблицы, если позиция выходит за её размеры
-    void Fit(const Position pos);
+    // и при необходимости увеличивает длину строки pos.row
+    void Fit(Position pos);
 
-    template <typename CellPredicate>
-    void PrintCells(std::ostream& output, CellPredicate fn) const;
+    template<typename T, typename Fn>
+    void ClearTail(std::vector<T>& v, Fn is_empty);
+
+    template<typename Predicate>
+    void PrintCells(std::ostream& output, Predicate print_cell) const;
 };
 
-template <typename CellPredicate>
-void Sheet::PrintCells(std::ostream& output, CellPredicate fn) const {
+template<typename T, typename Predicate>
+void Sheet::ClearTail(std::vector<T>& v, Predicate is_empty) {
+    v.resize(std::distance(
+        std::find_if_not(v.rbegin(), v.rend(), is_empty),
+        v.rend()
+    ));
+}
+
+template <typename Predicate>
+void Sheet::PrintCells(std::ostream& output, Predicate print_cell) const {
     const Size printable_size = GetPrintableSize();
     for (int i = 0; i < printable_size.rows; ++i) {
         bool is_first = true;
@@ -80,8 +99,8 @@ void Sheet::PrintCells(std::ostream& output, CellPredicate fn) const {
             else
                 is_first = false;
 
-            if (const std::unique_ptr<Cell>& cell = cells_.at(i).at(j))
-                fn(cell);
+            if (const std::unique_ptr<Cell>& cell = rows_.at(i).at(j))
+                print_cell(cell);
         }
         output << '\n';
     }
