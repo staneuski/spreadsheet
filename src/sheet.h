@@ -41,10 +41,26 @@ public:
 
     void ClearCell(Position pos) override;
 
-    Size GetPrintableSize() const override;
+    inline Size GetPrintableSize() const override {
+        return {
+            static_cast<int>(rows_.size()),
+            static_cast<int>(columns_count_)
+        };
+    }
 
-    void PrintValues(std::ostream& output) const override;
-    void PrintTexts(std::ostream& output) const override;
+    inline void PrintValues(std::ostream& output) const override {
+        PrintCells(output, [&output](const std::unique_ptr<Cell>& cell) {
+            if (cell)
+                std::visit(CellValuePrinter(output), cell->GetValue());
+        });
+    }
+
+    inline void PrintTexts(std::ostream& output) const override {
+        PrintCells(output, [&output](const std::unique_ptr<Cell>& cell) {
+            if (cell)
+                output << cell->GetText();
+        });
+    }
 
 private:
     std::vector<Row> rows_;
@@ -92,18 +108,24 @@ void Sheet::DropTail(std::vector<T>& v, Predicate predicate) {
 
 template <typename Predicate>
 void Sheet::PrintCells(std::ostream& output, Predicate print_cell) const {
-    const Size printable_size = GetPrintableSize();
-    for (int i = 0; i < printable_size.rows; ++i) {
-        bool is_first = true;
-        for (int j = 0; j < printable_size.cols; ++j) {
-            if (!is_first)
-                output << '\t';
-            else
-                is_first = false;
-
-            if (const std::unique_ptr<Cell>& cell = rows_.at(i).at(j))
-                print_cell(cell);
+    for (const Row& row : rows_) {
+        // Print row (rows stored to the last not empty cell) 
+        if (!row.empty()) {
+            print_cell(row.front());
+            std::for_each(
+                std::next(row.begin()),
+                row.end(),
+                [&](const std::unique_ptr<Cell>& cell) {
+                    output << '\t';
+                    print_cell(cell);
+                }
+            );
         }
+
+        // Simulate dropped tail with tabs 
+        for (size_t j = row.size(); j < columns_count_; ++j)
+            output << '\t';
+
         output << '\n';
     }
 }

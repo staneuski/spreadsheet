@@ -35,40 +35,6 @@ void Sheet::ClearCell(Position pos) {
     }
 }
 
-Size Sheet::GetPrintableSize() const {
-    Size printable_size;
-
-    auto row = rows_.rbegin();
-    for (; row != rows_.rend(); row = std::next(row)) {
-        if (row->empty())
-            break;
-
-        const size_t index = std::distance(
-            row->begin(),
-            std::find_if_not(row->begin(), row->end(), IsCellEmpty)
-        );
-        printable_size.cols = std::max(
-            static_cast<int>(columns_count_ - index),
-            printable_size.cols
-        );
-    }
-
-    printable_size.rows = std::distance(rows_.rbegin(), row);
-    return printable_size;
-}
-
-void Sheet::PrintValues(std::ostream& output) const {
-    PrintCells(output, [&output](const std::unique_ptr<Cell>& cell) {
-        std::visit(CellValuePrinter(output), cell->GetValue());
-    });
-}
-
-void Sheet::PrintTexts(std::ostream& output) const {
-    PrintCells(output, [&output](const std::unique_ptr<Cell>& cell) {
-        output << cell->GetText();
-    });
-}
-
 void Sheet::Fit(Position pos) {
     rows_.resize(std::max(rows_.size(), static_cast<size_t>(pos.row + 1)));
 
