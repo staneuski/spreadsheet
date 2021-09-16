@@ -28,14 +28,10 @@ CellInterface* Sheet::GetCell(Position pos) {
 void Sheet::ClearCell(Position pos) {
     ThrowInvalidPosition(pos);
     if (IsFit(pos) && rows_[pos.row][pos.col]) {
-        std::vector<std::unique_ptr<Cell>>& row = rows_.at(pos.row);
-        row.at(pos.col)->Clear();
-
-        ClearTail(row, IsCellEmpty);
-        columns_count_ = std::max(row.size(), columns_count_);
-
-        if (rows_.size() == static_cast<size_t>(pos.row + 1))
-            ClearTail(rows_, [](const auto& row) { return row.empty(); });
+        Row& row = rows_[pos.row];
+        row[pos.col]->Clear();
+        if (row.size() == static_cast<size_t>(pos.col + 1))
+            Shrink();
     }
 }
 
@@ -76,10 +72,19 @@ void Sheet::PrintTexts(std::ostream& output) const {
 void Sheet::Fit(Position pos) {
     rows_.resize(std::max(rows_.size(), static_cast<size_t>(pos.row + 1)));
 
-    std::vector<std::unique_ptr<Cell>>& row = rows_.at(pos.row);
+    Row& row = rows_.at(pos.row);
     row.resize(std::max(row.size(), static_cast<size_t>(pos.col + 1)));
 
     columns_count_ = std::max(row.size(), columns_count_);
+}
+
+void Sheet::Shrink() {
+    columns_count_ = {};
+    for (Row& row : rows_) {
+        DropTail(row, IsCellEmpty);
+        columns_count_ = std::max(row.size(), columns_count_);
+    }
+    DropTail(rows_, [](const auto& row) { return row.empty(); });
 }
 
 std::unique_ptr<SheetInterface> CreateSheet() {

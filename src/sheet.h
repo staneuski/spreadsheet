@@ -73,17 +73,19 @@ private:
     // и при необходимости увеличивает длину строки pos.row
     void Fit(Position pos);
 
+    void Shrink();
+
     template<typename T, typename Fn>
-    void ClearTail(std::vector<T>& v, Fn is_empty);
+    void DropTail(std::vector<T>& v, Fn is_empty);
 
     template<typename Predicate>
     void PrintCells(std::ostream& output, Predicate print_cell) const;
 };
 
 template<typename T, typename Predicate>
-void Sheet::ClearTail(std::vector<T>& v, Predicate is_empty) {
+void Sheet::DropTail(std::vector<T>& v, Predicate predicate) {
     v.resize(std::distance(
-        std::find_if_not(v.rbegin(), v.rend(), is_empty),
+        std::find_if_not(v.rbegin(), v.rend(), predicate),
         v.rend()
     ));
 }
