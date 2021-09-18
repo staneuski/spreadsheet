@@ -23,7 +23,7 @@ class Sheet : public SheetInterface {
         }
 
         inline void operator()(FormulaError value) {
-            out_ << value;
+            out_ << value.ToString();
         }
 
     private:

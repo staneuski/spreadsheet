@@ -48,12 +48,40 @@ struct Size {
 };
 
 // Описывает ошибки, которые могут возникнуть при вычислении формулы.
-class FormulaError : public std::runtime_error {
+class FormulaError {
 public:
-    using std::runtime_error::runtime_error;
-};
+    enum class Category {
+        Ref,    // ссылка на ячейку с некорректной позицией
+        Value,  // ячейка не может быть трактована как число
+        Div0,   // в результате вычисления возникло деление на ноль
+    };
 
-std::ostream& operator<<(std::ostream& output, FormulaError fe);
+    FormulaError(Category category) : category_(category) {}
+
+    inline Category GetCategory() const {
+        return category_;
+    }
+
+    inline bool operator==(FormulaError rhs) const {
+        return category_ == rhs.category_;
+    }
+
+    inline std::string_view ToString() const {
+        switch (category_) {
+        case Category::Div0:
+            return "#DIV/0!";
+        case Category::Ref:
+            return "#REF!";
+        case Category::Value:
+            return "#VALUE!";
+        default:
+            return "#UNKNOWN!";
+        }
+    }
+
+private:
+    Category category_;
+};
 
 // Исключение, выбрасываемое при попытке задать синтаксически некорректную
 // формулу
@@ -66,6 +94,13 @@ public:
 class InvalidPositionException : public std::out_of_range {
 public:
     using std::out_of_range::out_of_range;
+};
+
+// Исключение, выбрасываемое при попытке задать формулу, которая приводит к
+// циклической зависимости между ячейками
+class CircularDependencyException : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
 };
 
 // Исключение, выбрасываемое, если вставка строк/столбцов в таблицу приведёт к

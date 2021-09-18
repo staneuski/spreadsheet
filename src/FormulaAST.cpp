@@ -148,19 +148,19 @@ public:
         const double lhs = lhs_->Evaluate();
         const double rhs = rhs_->Evaluate();
         switch (type_) {
-        case Type::Add:
-            return lhs + rhs;
-        case Type::Subtract:
-            return lhs - rhs;
-        case Type::Multiply:
-            return lhs*rhs;
-        case Type::Divide: {
-            double result = lhs/rhs;
-            if (!std::isfinite(result))
-                throw FormulaError("division to zero");
-            return result;
-        } default:
-            throw std::invalid_argument("invalid type");
+            case Type::Add:
+                return lhs + rhs;
+            case Type::Subtract:
+                return lhs - rhs;
+            case Type::Multiply:
+                return lhs*rhs;
+            case Type::Divide: {
+                double result = lhs/rhs;
+                if (!std::isfinite(result))
+                    throw FormulaError(FormulaError::Category::Div0);
+                return result;
+            } default:
+                throw std::invalid_argument("invalid operand type");
         }
     }
 
