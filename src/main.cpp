@@ -13,12 +13,9 @@ inline std::ostream& operator<<(std::ostream& output, Size size) {
     return output << "(" << size.rows << ", " << size.cols << ")";
 }
 
-inline std::ostream& operator<<(std::ostream& output, const CellInterface::Value& value) {
-    std::visit(
-        [&](const auto& x) {
-            output << x;
-        },
-        value);
+inline std::ostream& operator<<(std::ostream& output,
+                                const CellInterface::Value& value) {
+    std::visit([&](const auto& x) { output << x; }, value);
     return output;
 }
 
@@ -34,10 +31,12 @@ void TestInvalidPosition() {
         sheet->SetCell(Position{-1, 0}, "");
     } catch (const InvalidPositionException&) {
     }
+
     try {
         sheet->GetCell(Position{0, -2});
     } catch (const InvalidPositionException&) {
     }
+
     try {
         sheet->ClearCell(Position{Position::MAX_ROWS, 0});
     } catch (const InvalidPositionException&) {
@@ -108,5 +107,6 @@ int main() {
     RUN_TEST(tr, TestSetCellPlainText);
     RUN_TEST(tr, TestClearCell);
     RUN_TEST(tr, TestPrint);
+
     return 0;
 }

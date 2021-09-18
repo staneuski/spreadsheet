@@ -46,10 +46,13 @@ class Cell final : public CellInterface {
 
     class FormulaImpl final : public Impl {
     public:
-        FormulaImpl(std::string text) : formula_(ParseFormula(text)) {}
+        FormulaImpl(const SheetInterface& sheet, std::string text)
+            : sheet_(sheet)
+            , formula_(ParseFormula(text)) {
+        }
 
         inline CellInterface::Value GetValue() const override {
-            const FormulaInterface::Value result = formula_->Evaluate();
+            const FormulaInterface::Value result = formula_->Evaluate(sheet_);
             return std::holds_alternative<double>(result)
                    ? CellInterface::Value(std::get<double>(result))
                    : CellInterface::Value(std::get<FormulaError>(result));
@@ -60,11 +63,13 @@ class Cell final : public CellInterface {
         }
 
     private:
+        const SheetInterface& sheet_;
         std::unique_ptr<FormulaInterface> formula_;
     };
 
 public:
-    Cell() = default;
+    Cell(const SheetInterface& sheet) : sheet_(sheet) {};
+
     ~Cell() = default;
 
     inline Value GetValue() const override {
@@ -82,5 +87,6 @@ public:
     void Set(std::string text) override;
 
 private:
+    const SheetInterface& sheet_;
     std::unique_ptr<Impl> impl_ = std::make_unique<EmptyImpl>();
 };

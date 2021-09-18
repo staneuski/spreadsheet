@@ -71,8 +71,9 @@ class Expr {
 public:
     virtual ~Expr() = default;
     virtual void Print(std::ostream& out) const = 0;
-    virtual void DoPrintFormula(std::ostream& out, ExprPrecedence precedence) const = 0;
-    virtual double Evaluate() const = 0;
+    virtual void DoPrintFormula(std::ostream& out,
+                                ExprPrecedence precedence) const = 0;
+    virtual double Evaluate(const FormulaAST::ValueGetter& get_value) const = 0;
 
     // higher is tighter
     virtual ExprPrecedence GetPrecedence() const = 0;
@@ -144,9 +145,9 @@ public:
 
 // Реализуйте метод Evaluate() для бинарных операций.
 // При делении на 0 выбрасывайте ошибку вычисления FormulaError
-    double Evaluate() const override {
-        const double lhs = lhs_->Evaluate();
-        const double rhs = rhs_->Evaluate();
+    double Evaluate(const FormulaAST::ValueGetter& get_value) const override {
+        const double lhs = lhs_->Evaluate(get_value);
+        const double rhs = rhs_->Evaluate(get_value);
         switch (type_) {
             case Type::Add:
                 return lhs + rhs;
@@ -199,8 +200,8 @@ public:
     }
 
 // Реализуйте метод Evaluate() для унарных операций.
-    double Evaluate() const override {
-        const double result = operand_->Evaluate();
+    double Evaluate(const FormulaAST::ValueGetter& get_value) const override {
+        const double result = operand_->Evaluate(get_value);
         return type_ == Type::UnaryMinus ? -result : result;
     }
 
@@ -228,7 +229,7 @@ public:
     }
 
 // Для чисел метод возвращает значение числа.
-    double Evaluate() const override {
+    double Evaluate(const FormulaAST::ValueGetter&) const override {
         return value_;
     }
 
@@ -363,8 +364,8 @@ void FormulaAST::PrintFormula(std::ostream& out) const {
     root_expr_->PrintFormula(out, ASTImpl::EP_ATOM);
 }
 
-double FormulaAST::Execute() const {
-    return root_expr_->Evaluate();
+double FormulaAST::Execute(const ValueGetter& get_value) const {
+    return root_expr_->Evaluate(get_value);
 }
 
 FormulaAST::FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr)

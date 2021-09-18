@@ -17,12 +17,15 @@ class ParsingError : public std::runtime_error {
 
 class FormulaAST {
 public:
+    using ValueGetter = std::function<double(Position)>;
+
+public:
     explicit FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr);
     FormulaAST(FormulaAST&&) = default;
     FormulaAST& operator=(FormulaAST&&) = default;
     ~FormulaAST();
 
-    double Execute() const;
+    double Execute(const ValueGetter& get_value) const;
     void Print(std::ostream& out) const;
     void PrintFormula(std::ostream& out) const;
 
