@@ -120,7 +120,8 @@ public:
         out << ')';
     }
 
-    void DoPrintFormula(std::ostream& out, ExprPrecedence precedence) const override {
+    void DoPrintFormula(std::ostream& out,
+                        ExprPrecedence precedence) const override {
         lhs_->PrintFormula(out, precedence);
         out << static_cast<char>(type_);
         rhs_->PrintFormula(out, precedence, /* right_child = */ true);
@@ -190,7 +191,8 @@ public:
         out << ')';
     }
 
-    void DoPrintFormula(std::ostream& out, ExprPrecedence precedence) const override {
+    void DoPrintFormula(std::ostream& out,
+                        ExprPrecedence precedence) const override {
         out << static_cast<char>(type_);
         operand_->PrintFormula(out, precedence);
     }
@@ -220,7 +222,7 @@ public:
         out << value_;
     }
 
-    void DoPrintFormula(std::ostream& out, ExprPrecedence /* precedence */) const override {
+    void DoPrintFormula(std::ostream& out, ExprPrecedence) const override {
         out << value_;
     }
 
@@ -237,6 +239,34 @@ private:
     double value_;
 };
 
+class CellExpr final : public Expr {
+public:
+    explicit CellExpr(const Position* cell) : cell_(cell) {}
+
+    void Print(std::ostream& out) const override {
+        if (!cell_->IsValid())
+            out << FormulaError(FormulaError::Category::Ref).ToString();
+        else
+            out << cell_->ToString();
+    }
+
+    void DoPrintFormula(std::ostream& out,
+                        ExprPrecedence /* precedence */) const override {
+        Print(out);
+    }
+
+    ExprPrecedence GetPrecedence() const override {
+        return EP_ATOM;
+    }
+
+    double Evaluate(const FormulaAST::ValueGetter& get_value) const override {
+        return get_value(*cell_);
+    }
+
+private:
+    const Position* cell_;
+};
+
 class ParseASTListener final : public FormulaBaseListener {
 public:
     std::unique_ptr<Expr> MoveRoot() {
@@ -245,6 +275,10 @@ public:
         args_.clear();
 
         return root;
+    }
+
+    std::forward_list<Position> MoveCells() {
+        return std::move(cells_);
     }
 
 public:
@@ -278,6 +312,18 @@ public:
         args_.push_back(std::move(node));
     }
 
+    void exitCell(FormulaParser::CellContext* ctx) override {
+        auto value_str = ctx->CELL()->getSymbol()->getText();
+        auto value = Position::FromString(value_str);
+        if (!value.IsValid()) {
+            throw FormulaException("Invalid position: " + value_str);
+        }
+
+        cells_.push_front(value);
+        auto node = std::make_unique<CellExpr>(&cells_.front());
+        args_.push_back(std::move(node));
+    }
+
     void exitBinaryOp(FormulaParser::BinaryOpContext* ctx) override {
         assert(args_.size() >= 2);
 
@@ -298,7 +344,11 @@ public:
             type = BinaryOpExpr::Divide;
         }
 
-        auto node = std::make_unique<BinaryOpExpr>(type, std::move(lhs), std::move(rhs));
+        auto node = std::make_unique<BinaryOpExpr>(
+            type,
+            std::move(lhs),
+            std::move(rhs)
+        );
         args_.back() = std::move(node);
     }
 
@@ -308,18 +358,19 @@ public:
 
 private:
     std::vector<std::unique_ptr<Expr>> args_;
+    std::forward_list<Position> cells_;
 };
 
 class BailErrorListener : public antlr4::BaseErrorListener {
 public:
-    void syntaxError(antlr4::Recognizer* /* recognizer */, antlr4::Token* /* offendingSymbol */,
-                     size_t /* line */, size_t /* charPositionInLine */, const std::string& msg,
-                     std::exception_ptr /* e */
-                     ) override {
+    void syntaxError(
+        antlr4::Recognizer* /* recognizer */, antlr4::Token* /* offendingSymbol */,
+        size_t /* line */, size_t /* charPositionInLine */, const std::string& msg,
+        std::exception_ptr /* e */
+    ) override {
         throw ParsingError("Error when lexing: " + msg);
     }
 };
-
 }  // namespace
 }  // namespace ASTImpl
 
