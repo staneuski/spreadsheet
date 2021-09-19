@@ -51,7 +51,8 @@ public:
                 return .0;
 
             double value = {};
-            std::visit(ValueGetter(value), cell->GetValue());
+            const auto& cell_value = cell->GetValue();
+            std::visit(ValueGetter(value), cell_value);
             return value;
         };
 
@@ -66,6 +67,11 @@ public:
         std::stringstream ss;
         ast_.PrintFormula(ss);
         return ss.str();
+    }
+
+    inline std::vector<Position> GetReferencedCells() const override {
+        const std::forward_list<Position>& referenced_cells = ast_.GetCells();
+        return {referenced_cells.begin(), referenced_cells.end()};
     }
 
 private:

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <unordered_set>
 
 class Cell final : public CellInterface {
     class Impl {
@@ -13,6 +14,7 @@ class Cell final : public CellInterface {
         virtual ~Impl() = default;
         virtual CellInterface::Value GetValue() const = 0;
         virtual std::string GetText() const = 0;
+        virtual std::vector<Position> GetReferencedCells() const = 0;
     };
 
     class EmptyImpl final : public Impl {
@@ -22,6 +24,10 @@ class Cell final : public CellInterface {
         }
 
         inline std::string GetText() const override {
+            return {};
+        }
+
+        inline std::vector<Position> GetReferencedCells() const override {
             return {};
         }
     };
@@ -38,6 +44,10 @@ class Cell final : public CellInterface {
 
         inline std::string GetText() const override {
             return content_;
+        }
+
+        inline std::vector<Position> GetReferencedCells() const override {
+            return {};
         }
 
     private:
@@ -62,6 +72,10 @@ class Cell final : public CellInterface {
             return FORMULA_SIGN + formula_->GetExpression();
         }
 
+        inline std::vector<Position> GetReferencedCells() const override {
+            return formula_->GetReferencedCells();
+        }
+
     private:
         const SheetInterface& sheet_;
         std::unique_ptr<FormulaInterface> formula_;
@@ -80,6 +94,10 @@ public:
         return impl_->GetText();
     }
 
+    inline std::vector<Position> GetReferencedCells() const override {
+        return referenced_cells_;
+    }
+
     inline void Clear() {
         impl_ = std::make_unique<EmptyImpl>();
     }
@@ -89,4 +107,7 @@ public:
 private:
     const SheetInterface& sheet_;
     std::unique_ptr<Impl> impl_ = std::make_unique<EmptyImpl>();
+    std::vector<Position> referenced_cells_;
+
+    void UpdateCellsGraph(const std::unique_ptr<Impl>& updated_impl);
 };

@@ -395,7 +395,7 @@ FormulaAST ParseFormulaAST(std::istream& in) {
     ASTImpl::ParseASTListener listener;
     tree::ParseTreeWalker::DEFAULT.walk(&listener, tree);
 
-    return FormulaAST(listener.MoveRoot());
+    return FormulaAST(listener.MoveRoot(), listener.MoveCells());
 }
 
 FormulaAST ParseFormulaAST(const std::string& in_str) {
@@ -419,8 +419,11 @@ double FormulaAST::Execute(const ValueGetter& get_value) const {
     return root_expr_->Evaluate(get_value);
 }
 
-FormulaAST::FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr)
-    : root_expr_(std::move(root_expr)) {
+FormulaAST::FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr,
+                       std::forward_list<Position> cells)
+        : root_expr_(std::move(root_expr))
+        , cells_(std::move(cells)) {
+    cells_.sort();
 }
 
 FormulaAST::~FormulaAST() = default;
