@@ -20,7 +20,7 @@ inline std::ostream& operator<<(std::ostream& output,
 }
 
 namespace {
-/*void TestEmpty() {
+void TestEmpty() {
     auto sheet = CreateSheet();
     ASSERT_EQUAL(sheet->GetPrintableSize(), (Size{0, 0}));
 }
@@ -97,9 +97,18 @@ void TestPrint() {
 
     sheet->ClearCell("B2"_pos);
     ASSERT_EQUAL(sheet->GetPrintableSize(), (Size{2, 1}));
-}*/
+}
 
 void TestReference() {
+    {
+        auto sheet = CreateSheet();
+        sheet->SetCell("A2"_pos, "3");
+        sheet->SetCell("C2"_pos, "=A3/A2");
+
+        const auto cell_c2 = sheet->GetCell("C2"_pos)->GetValue();
+        ASSERT(std::holds_alternative<double>(cell_c2));
+        ASSERT_EQUAL(std::get<double>(cell_c2), 0);
+    }
     {
         auto sheet = CreateSheet();
         sheet->SetCell("A2"_pos, "3");
@@ -115,16 +124,40 @@ void TestReference() {
         ASSERT_EQUAL(std::get<double>(cell_c2), 5);
     }
 }
+
+void TestThrowDiv0() {
+    auto sheet = CreateSheet();
+    sheet->SetCell("A2"_pos, "0");
+    sheet->SetCell("A3"_pos, "15");
+    sheet->SetCell("C2"_pos, "=A3/A2");
+
+    const auto cell_c2 = sheet->GetCell("C2"_pos)->GetValue();
+    ASSERT(std::holds_alternative<FormulaError>(cell_c2));
+    ASSERT_EQUAL(std::get<FormulaError>(cell_c2).ToString(), "#DIV/0!");
+}
+
+void TestThrowValueError() {
+    auto sheet = CreateSheet();
+    sheet->SetCell("A2"_pos, "text");
+    sheet->SetCell("A3"_pos, "15");
+    sheet->SetCell("C2"_pos, "=A3/A2");
+
+    const auto cell_c2 = sheet->GetCell("C2"_pos)->GetValue();
+    ASSERT(std::holds_alternative<FormulaError>(cell_c2));
+    ASSERT_EQUAL(std::get<FormulaError>(cell_c2).ToString(), "#VALUE!");
+}
 }  // namespace
 
 int main() {
     TestRunner tr;
-    // RUN_TEST(tr, TestEmpty);
-    // RUN_TEST(tr, TestInvalidPosition);
-    // RUN_TEST(tr, TestSetCellPlainText);
-    // RUN_TEST(tr, TestClearCell);
-    // RUN_TEST(tr, TestPrint);
+    RUN_TEST(tr, TestEmpty);
+    RUN_TEST(tr, TestInvalidPosition);
+    RUN_TEST(tr, TestSetCellPlainText);
+    RUN_TEST(tr, TestClearCell);
+    RUN_TEST(tr, TestPrint);
     RUN_TEST(tr, TestReference);
+    RUN_TEST(tr, TestThrowDiv0);
+    RUN_TEST(tr, TestThrowValueError);
 
     return 0;
 }

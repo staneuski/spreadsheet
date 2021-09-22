@@ -14,6 +14,7 @@ class Cell final : public CellInterface {
         virtual ~Impl() = default;
         virtual CellInterface::Value GetValue() const = 0;
         virtual std::string GetText() const = 0;
+        virtual void DropCache() = 0;
         virtual std::vector<Position> GetReferencedCells() const = 0;
     };
 
@@ -27,12 +28,14 @@ class Cell final : public CellInterface {
             return {};
         }
 
+        inline void DropCache() override {}
+
         inline std::vector<Position> GetReferencedCells() const override {
             return {};
         }
     };
 
-    class TextImpl final : public Impl  {
+    class TextImpl final : public Impl {
     public:
         TextImpl(std::string text) : content_(std::move(text)) {}
 
@@ -45,6 +48,8 @@ class Cell final : public CellInterface {
         inline std::string GetText() const override {
             return content_;
         }
+
+        inline void DropCache() override {}
 
         inline std::vector<Position> GetReferencedCells() const override {
             return {};
@@ -62,7 +67,8 @@ class Cell final : public CellInterface {
         }
 
         inline CellInterface::Value GetValue() const override {
-            const FormulaInterface::Value result = formula_->Evaluate(sheet_);
+            const FormulaInterface::Value& result = (cache_ != std::nullopt)
+                ? *cache_ : formula_->Evaluate(sheet_);
             return std::holds_alternative<double>(result)
                    ? CellInterface::Value(std::get<double>(result))
                    : CellInterface::Value(std::get<FormulaError>(result));
@@ -72,6 +78,10 @@ class Cell final : public CellInterface {
             return FORMULA_SIGN + formula_->GetExpression();
         }
 
+        inline void DropCache() override {
+            cache_ = std::nullopt;
+        }
+
         inline std::vector<Position> GetReferencedCells() const override {
             return formula_->GetReferencedCells();
         }
@@ -79,10 +89,11 @@ class Cell final : public CellInterface {
     private:
         const SheetInterface& sheet_;
         std::unique_ptr<FormulaInterface> formula_;
+        std::optional<FormulaInterface::Value> cache_;
     };
 
 public:
-    Cell(const SheetInterface& sheet) : sheet_(sheet) {};
+    Cell(SheetInterface& sheet) : sheet_(sheet) {};
 
     ~Cell() = default;
 
@@ -105,9 +116,17 @@ public:
     void Set(std::string text) override;
 
 private:
-    const SheetInterface& sheet_;
+    SheetInterface& sheet_;
     std::unique_ptr<Impl> impl_ = std::make_unique<EmptyImpl>();
     std::vector<Position> referenced_cells_;
+    std::unordered_set<Cell*> dependent_cells_;
 
-    void UpdateCellsGraph(const std::unique_ptr<Impl>& updated_impl);
+    inline void DropDependentCache() {
+        std::unordered_set<Cell*> dropped_cache_cells = {};
+        DropDependentCache(dropped_cache_cells);
+    }
+
+    void DropDependentCache(std::unordered_set<Cell*>& dropped_cache_cells);
+
+    void UpdateCellsGraph(const std::unique_ptr<Impl>& impl);
 };
