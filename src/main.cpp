@@ -146,6 +146,18 @@ void TestThrowValueError() {
     ASSERT(std::holds_alternative<FormulaError>(cell_c2));
     ASSERT_EQUAL(std::get<FormulaError>(cell_c2).ToString(), "#VALUE!");
 }
+
+void TestCircularDependencyException() {
+    auto sheet = CreateSheet();
+    sheet->SetCell("A2"_pos, "3");
+    sheet->SetCell("C2"_pos, "=A3/A2");
+    sheet->SetCell("C4"_pos, "=C2+8");
+
+    try {
+        sheet->SetCell("A3"_pos, "=C4-1");
+    } catch (const CircularDependencyException&) {
+    }
+}
 }  // namespace
 
 int main() {
@@ -158,6 +170,7 @@ int main() {
     RUN_TEST(tr, TestReference);
     RUN_TEST(tr, TestThrowDiv0);
     RUN_TEST(tr, TestThrowValueError);
+    RUN_TEST(tr, TestCircularDependencyException);
 
     return 0;
 }

@@ -121,12 +121,22 @@ private:
     std::vector<Position> referenced_cells_;
     std::unordered_set<Cell*> dependent_cells_;
 
+    inline void Validate(const std::unique_ptr<Impl>& updated_impl) const {
+        std::unordered_set<const Cell*> validated_cells = {};
+        Validate(updated_impl->GetReferencedCells(), validated_cells);
+    }
+
     inline void DropDependentCache() {
-        std::unordered_set<Cell*> dropped_cache_cells = {};
+        std::unordered_set<const Cell*> dropped_cache_cells = {};
         DropDependentCache(dropped_cache_cells);
     }
 
-    void DropDependentCache(std::unordered_set<Cell*>& dropped_cache_cells);
+    void Validate(const std::vector<Position>& referenced_cells,
+                  std::unordered_set<const Cell*>& validated_cells) const;
 
-    void UpdateCellsGraph(const std::unique_ptr<Impl>& impl);
+    void DropDependentCache(
+        std::unordered_set<const Cell*>& dropped_cache_cells
+    );
+
+    void UpdateCellsGraph(const std::unique_ptr<Impl>& updated_impl);
 };

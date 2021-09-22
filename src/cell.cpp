@@ -9,13 +9,33 @@ void Cell::Set(std::string text) {
     else if (!text.empty())
         updated_impl = std::make_unique<TextImpl>(text);
 
+    Validate(updated_impl);
+
     DropDependentCache();
     UpdateCellsGraph(updated_impl);
 
     impl_ = std::move(updated_impl);
 }
 
-void Cell::DropDependentCache(std::unordered_set<Cell*>& dropped_cache_cells) {
+void Cell::Validate(const std::vector<Position>& referenced_cells,
+                    std::unordered_set<const Cell*>& validated_cells) const {
+    for (const Position& pos : referenced_cells) {
+        const Cell* ref_cell = reinterpret_cast<Cell*>(sheet_.GetCell(pos));
+
+        if (this == ref_cell) {
+            throw CircularDependencyException("circular dependency");
+        } else if (
+            ref_cell && validated_cells.find(ref_cell) != validated_cells.end()
+        ) {
+            validated_cells.insert(ref_cell);
+            Validate(ref_cell->GetReferencedCells(), validated_cells);
+        }
+    }
+}
+
+void Cell::DropDependentCache(
+    std::unordered_set<const Cell*>& dropped_cache_cells
+) {
     for (Cell* dependent_cell : dependent_cells_) {
         if (dropped_cache_cells.find(dependent_cell) != dropped_cache_cells.end()) {
             dependent_cell->impl_->DropCache();
