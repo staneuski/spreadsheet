@@ -7,7 +7,7 @@ void Sheet::SetCell(Position pos, std::string text) {
 
     std::unique_ptr<Cell>& cell = rows_[pos.row][pos.col];
     if (!cell)
-        cell = std::make_unique<Cell>();
+        cell = std::make_unique<Cell>(*this);
     cell->Set(text);
 }
 

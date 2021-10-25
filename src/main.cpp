@@ -2,7 +2,7 @@
 #include "test_runner_p.h"
 
 inline std::ostream& operator<<(std::ostream& output, Position pos) {
-    return output << "(" << pos.row << ", " << pos.col << ")";
+    return output << '(' << pos.row << ", " << pos.col << ')';
 }
 
 inline Position operator"" _pos(const char* str, std::size_t) {
@@ -10,15 +10,12 @@ inline Position operator"" _pos(const char* str, std::size_t) {
 }
 
 inline std::ostream& operator<<(std::ostream& output, Size size) {
-    return output << "(" << size.rows << ", " << size.cols << ")";
+    return output << '(' << size.rows << ", " << size.cols << ')';
 }
 
-inline std::ostream& operator<<(std::ostream& output, const CellInterface::Value& value) {
-    std::visit(
-        [&](const auto& x) {
-            output << x;
-        },
-        value);
+inline std::ostream& operator<<(std::ostream& output,
+                                const CellInterface::Value& value) {
+    std::visit([&](const auto& x) { output << x; }, value);
     return output;
 }
 
@@ -34,10 +31,12 @@ void TestInvalidPosition() {
         sheet->SetCell(Position{-1, 0}, "");
     } catch (const InvalidPositionException&) {
     }
+
     try {
         sheet->GetCell(Position{0, -2});
     } catch (const InvalidPositionException&) {
     }
+
     try {
         sheet->ClearCell(Position{Position::MAX_ROWS, 0});
     } catch (const InvalidPositionException&) {
@@ -99,6 +98,66 @@ void TestPrint() {
     sheet->ClearCell("B2"_pos);
     ASSERT_EQUAL(sheet->GetPrintableSize(), (Size{2, 1}));
 }
+
+void TestReference() {
+    {
+        auto sheet = CreateSheet();
+        sheet->SetCell("A2"_pos, "3");
+        sheet->SetCell("C2"_pos, "=A3/A2");
+
+        const auto cell_c2 = sheet->GetCell("C2"_pos)->GetValue();
+        ASSERT(std::holds_alternative<double>(cell_c2));
+        ASSERT_EQUAL(std::get<double>(cell_c2), 0);
+    }
+    {
+        auto sheet = CreateSheet();
+        sheet->SetCell("A2"_pos, "3");
+        sheet->SetCell("A3"_pos, "=1+2*7");
+        sheet->SetCell("C2"_pos, "=A3/A2");
+
+        const auto cell_a3 = sheet->GetCell("A3"_pos)->GetValue();
+        const auto cell_c2 = sheet->GetCell("C2"_pos)->GetValue();
+
+        ASSERT(std::holds_alternative<double>(cell_c2));
+        ASSERT(std::holds_alternative<double>(cell_a3));
+        ASSERT_EQUAL(std::get<double>(cell_a3), 15);
+        ASSERT_EQUAL(std::get<double>(cell_c2), 5);
+    }
+}
+
+void TestThrowDiv0() {
+    auto sheet = CreateSheet();
+    sheet->SetCell("A2"_pos, "0");
+    sheet->SetCell("A3"_pos, "15");
+    sheet->SetCell("C2"_pos, "=A3/A2");
+
+    const auto cell_c2 = sheet->GetCell("C2"_pos)->GetValue();
+    ASSERT(std::holds_alternative<FormulaError>(cell_c2));
+    ASSERT_EQUAL(std::get<FormulaError>(cell_c2).ToString(), "#DIV/0!");
+}
+
+void TestThrowValueError() {
+    auto sheet = CreateSheet();
+    sheet->SetCell("A2"_pos, "text");
+    sheet->SetCell("A3"_pos, "15");
+    sheet->SetCell("C2"_pos, "=A3/A2");
+
+    const auto cell_c2 = sheet->GetCell("C2"_pos)->GetValue();
+    ASSERT(std::holds_alternative<FormulaError>(cell_c2));
+    ASSERT_EQUAL(std::get<FormulaError>(cell_c2).ToString(), "#VALUE!");
+}
+
+void TestCircularDependencyException() {
+    auto sheet = CreateSheet();
+    sheet->SetCell("A2"_pos, "3");
+    sheet->SetCell("C2"_pos, "=A3/A2");
+    sheet->SetCell("C4"_pos, "=C2+8");
+
+    try {
+        sheet->SetCell("A3"_pos, "=C4-1");
+    } catch (const CircularDependencyException&) {
+    }
+}
 }  // namespace
 
 int main() {
@@ -108,5 +167,10 @@ int main() {
     RUN_TEST(tr, TestSetCellPlainText);
     RUN_TEST(tr, TestClearCell);
     RUN_TEST(tr, TestPrint);
+    RUN_TEST(tr, TestReference);
+    RUN_TEST(tr, TestThrowDiv0);
+    RUN_TEST(tr, TestThrowValueError);
+    RUN_TEST(tr, TestCircularDependencyException);
+
     return 0;
 }

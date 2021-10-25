@@ -17,17 +17,34 @@ class ParsingError : public std::runtime_error {
 
 class FormulaAST {
 public:
-    explicit FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr);
+    using ValueGetter = std::function<double(Position)>;
+
+public:
+    explicit FormulaAST(std::unique_ptr<ASTImpl::Expr> root_expr,
+                        std::forward_list<Position> cells);
     FormulaAST(FormulaAST&&) = default;
     FormulaAST& operator=(FormulaAST&&) = default;
     ~FormulaAST();
 
-    double Execute() const;
+    double Execute(const ValueGetter& get_value) const;
     void Print(std::ostream& out) const;
     void PrintFormula(std::ostream& out) const;
 
+    inline std::forward_list<Position>& GetCells() {
+        return cells_;
+    }
+
+    inline const std::forward_list<Position>& GetCells() const {
+        return cells_;
+    }
+
 private:
     std::unique_ptr<ASTImpl::Expr> root_expr_;
+
+    // physically stores cells so that they can be
+    // efficiently traversed without going through
+    // the whole AST
+    std::forward_list<Position> cells_;
 };
 
 FormulaAST ParseFormulaAST(std::istream& in);
